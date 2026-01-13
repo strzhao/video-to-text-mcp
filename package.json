@@ -1,0 +1,40 @@
+{
+  "name": "@music/video-to-text-mcp",
+  "version": "1.0.0",
+  "main": "./build/index.js",
+  "type": "module",
+  "bin": {
+    "video-to-text-mcp": "build/index.js"
+  },
+  "publishConfig": {
+    "registry": "http://rnpm.hz.netease.com"
+  },
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "start": "node build/index.js",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc && chmod 755 build/index.js",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
+    "debug": "npx @modelcontextprotocol/inspector node build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "keywords": [],
+  "author": "zhaoguixiong@corp.netease.com",
+  "license": "ISC",
+  "description": "A MCP server for downloading videos and converting speech to text",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.3"
+  }
+}
