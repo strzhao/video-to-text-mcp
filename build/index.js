@@ -12,6 +12,11 @@ const videoToTextSchema = z.object({
     outputFormat: z.enum(["txt", "json", "srt", "vtt"]).default("txt"),
     language: z.string().optional().describe("Language code for transcription (e.g., 'en', 'zh')"),
 });
+const voiceToTextSchema = z.object({
+    url: z.string().url("Please provide a valid audio URL"),
+    outputFormat: z.enum(["txt", "json", "srt", "vtt"]).default("txt"),
+    language: z.string().optional().describe("Language code for transcription (e.g., 'en', 'zh')"),
+});
 // Create MCP server
 const server = new McpServer({
     name: "video-to-text-mcp",
@@ -60,6 +65,49 @@ server.registerTool("video_to_text", {
                 {
                     type: "text",
                     text: `Error processing video: ${error instanceof Error ? error.message : String(error)}`,
+                },
+            ],
+        };
+    }
+});
+// Register the voice to text tool
+server.registerTool("voice_to_text", {
+    description: "Download an audio file from URL and transcribe to text",
+    inputSchema: voiceToTextSchema.shape,
+}, async (args) => {
+    try {
+        const { url, outputFormat, language } = voiceToTextSchema.parse(args);
+        // Create temporary directory for processing
+        const tempDir = await mkdtemp(join(tmpdir(), "voice-to-text-"));
+        console.error(`Created temporary directory: ${tempDir}`);
+        // Step 1: Download audio using yt-dlp
+        console.error(`Downloading audio from: ${url}`);
+        const audioPath = join(tempDir, "audio.wav");
+        await downloadAudio(url, audioPath);
+        console.error(`Audio downloaded to: ${audioPath}`);
+        // Step 2: Transcribe audio using Whisper
+        console.error(`Transcribing audio to text...`);
+        const transcriptionPath = join(tempDir, `transcription.${outputFormat}`);
+        await transcribeAudio(audioPath, transcriptionPath, outputFormat, language);
+        console.error(`Transcription saved to: ${transcriptionPath}`);
+        // Step 3: Read transcription content
+        const transcriptionContent = await readFile(transcriptionPath, "utf-8");
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Audio transcription completed successfully.\n\nTranscription saved to: ${transcriptionPath}\n\nContent preview:\n${transcriptionContent.substring(0, 500)}${transcriptionContent.length > 500 ? '...' : ''}`,
+                },
+            ],
+        };
+    }
+    catch (error) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: `Error processing audio: ${error instanceof Error ? error.message : String(error)}`,
                 },
             ],
         };
@@ -128,6 +176,76 @@ async function downloadVideo(url, outputPath) {
                 }
                 catch (error) {
                     reject(new Error(`Failed to process downloaded video: ${error instanceof Error ? error.message : String(error)}`));
+                }
+            }
+            else {
+                reject(new Error(`yt-dlp failed with code ${code}: ${stderr}`));
+            }
+        });
+        ytDlp.on("error", (error) => {
+            reject(new Error(`Failed to spawn yt-dlp: ${error.message}`));
+        });
+    });
+}
+/**
+ * Download audio using yt-dlp
+ */
+async function downloadAudio(url, outputPath) {
+    return new Promise((resolve, reject) => {
+        const outputDir = dirname(outputPath);
+        const targetFileName = basename(outputPath);
+        // 使用 yt-dlp 下载音频，转换为 WAV 格式
+        const args = [
+            "--no-warnings",
+            "--no-progress",
+            "--extract-audio", // 只提取音频
+            "--audio-format", "wav", // 转换为 WAV 格式确保兼容性
+            url,
+        ];
+        console.error(`Downloading audio to directory: ${outputDir}`);
+        console.error(`Target filename: ${targetFileName}`);
+        const ytDlp = spawn("yt-dlp", args, {
+            cwd: outputDir,
+        });
+        let stderr = "";
+        ytDlp.stderr.on("data", (data) => {
+            stderr += data.toString();
+            console.error(`yt-dlp stderr: ${data.toString().trim()}`);
+        });
+        ytDlp.on("close", async (code) => {
+            if (code === 0) {
+                try {
+                    // yt-dlp 成功，现在查找生成的音频文件
+                    const files = await readdir(outputDir);
+                    const audioFiles = files.filter(file => file.endsWith('.wav') && !file.includes('.f') && !file.includes('_temp'));
+                    if (audioFiles.length === 0) {
+                        // 如果没有找到 .wav 文件，尝试查找其他音频文件
+                        const allAudioFiles = files.filter(file => file.endsWith('.wav') || file.endsWith('.mp3') || file.endsWith('.m4a') || file.endsWith('.ogg'));
+                        if (allAudioFiles.length === 0) {
+                            reject(new Error(`yt-dlp succeeded but no audio file found in ${outputDir}. Files: ${files.join(', ')}`));
+                            return;
+                        }
+                        // 使用第一个找到的音频文件
+                        const generatedFile = allAudioFiles[0];
+                        const generatedPath = join(outputDir, generatedFile);
+                        if (generatedFile !== targetFileName) {
+                            await rename(generatedPath, outputPath);
+                            console.error(`Renamed audio file from ${generatedFile} to ${targetFileName}`);
+                        }
+                    }
+                    else {
+                        // 使用第一个找到的 .wav 文件
+                        const generatedFile = audioFiles[0];
+                        const generatedPath = join(outputDir, generatedFile);
+                        if (generatedFile !== targetFileName) {
+                            await rename(generatedPath, outputPath);
+                            console.error(`Renamed audio file from ${generatedFile} to ${targetFileName}`);
+                        }
+                    }
+                    resolve();
+                }
+                catch (error) {
+                    reject(new Error(`Failed to process downloaded audio: ${error instanceof Error ? error.message : String(error)}`));
                 }
             }
             else {

@@ -8,6 +8,7 @@
 - 提取音频并转换为适合语音识别的格式（使用 ffmpeg）
 - 使用 OpenAI Whisper 将音频转换为文本
 - 支持多种输出格式：纯文本 (.txt)、JSON (.json)、SRT (.srt)、VTT (.vtt)
+- 从音频 URL 直接下载音频并转换为文本
 - 返回转录文本的本地文件路径
 
 ## 前提条件
@@ -87,19 +88,43 @@ npm run build
 
 ## 使用方法
 
-MCP 服务器提供一个工具：`video_to_text`
+MCP 服务器提供两个工具：`video_to_text` 和 `voice_to_text`
 
-### 参数
+### video_to_text 工具
+
+用于下载视频、提取音频并转换为文本。
+
+#### 参数
 
 - `url` (必需): 视频的 URL（支持 YouTube、Bilibili 等 yt-dlp 支持的平台）
 - `outputFormat` (可选): 输出格式，可选值：`txt`、`json`、`srt`、`vtt`（默认：`txt`）
 - `language` (可选): 语言代码，例如 `en`（英语）、`zh`（中文）、`ja`（日语）等
 
-### 示例调用
+#### 示例调用
 
 ```json
 {
   "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "outputFormat": "txt",
+  "language": "en"
+}
+```
+
+### voice_to_text 工具
+
+用于从音频 URL 直接下载音频文件并转换为文本。
+
+#### 参数
+
+- `url` (必需): 音频文件的 URL（支持 .mp3、.wav、.m4a 等格式）
+- `outputFormat` (可选): 输出格式，可选值：`txt`、`json`、`srt`、`vtt`（默认：`txt`）
+- `language` (可选): 语言代码，例如 `en`（英语）、`zh`（中文）、`ja`（日语）等
+
+#### 示例调用
+
+```json
+{
+  "url": "https://example.com/audio.mp3",
   "outputFormat": "txt",
   "language": "en"
 }
