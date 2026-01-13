@@ -1,13 +1,10 @@
 {
-  "name": "@music/video-to-text-mcp",
+  "name": "video-to-text-mcp",
   "version": "1.0.0",
   "main": "./build/index.js",
   "type": "module",
   "bin": {
     "video-to-text-mcp": "build/index.js"
-  },
-  "publishConfig": {
-    "registry": "http://rnpm.hz.netease.com"
   },
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
